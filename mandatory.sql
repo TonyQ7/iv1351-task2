@@ -1,5 +1,6 @@
 SET search_path = dsp, public;
 
+--query 1
 -- getting all 2025 course instances with their details such as code, name, HP, period, students
 SELECT 
 	h.course_code AS "Course Code",
@@ -31,26 +32,43 @@ GROUP BY h.course_code, h.instance_id, h.hp, h.study_period, h.num_students
 --sort by course code and period
 ORDER BY h.course_code, h.study_period;
 
+--query 2
+
+--for a specific course, show each teacher and their allocated hours by activity
+--Picking one course instance
 SELECT 
-    C."Course_Code",
-    CI."Instance_ID",
-    C."Credits" AS HP,
-    T."Name" AS "Teacher Name",
-    T."Designation",
-    SUM(CASE WHEN WA."Activity" = 'Lecture' THEN WA."Hours" * WA."Factor" ELSE 0 END) AS "Lecture Hours",
-    SUM(CASE WHEN WA."Activity" = 'Lab' THEN WA."Hours" * WA."Factor" ELSE 0 END) AS "Lab Hours",
-    SUM(CASE WHEN WA."Activity" = 'Seminar' THEN WA."Hours" * WA."Factor" ELSE 0 END) AS "Seminar Hours",
-    SUM(CASE WHEN WA."Activity" = 'Other Overhead' THEN WA."Hours" * WA."Factor" ELSE 0 END) AS "Overhead Hours",
-    SUM(CASE WHEN WA."Activity" = 'Admin' THEN WA."Hours" * WA."Factor" ELSE 0 END) AS "Admin",
-    SUM(CASE WHEN WA."Activity" = 'Exam' THEN WA."Hours" * WA."Factor" ELSE 0 END) AS "Exam",
-    SUM(WA."Hours" * WA."Factor") AS "Total"
-FROM "Work_Allocation" WA
-JOIN "Course_Instance" CI ON WA."Instance_ID" = CI."Instance_ID"
-JOIN "Course" C ON CI."Course_Code" = C."Course_Code"
-JOIN "Teacher" T ON WA."Employee_ID" = T."Employee_ID"
-WHERE CI."Year" = 2025
-GROUP BY C."Course_Code", CI."Instance_ID", C."Credits", T."Name", T."Designation"
-ORDER BY C."Course_Code", T."Name";
+	h.course_code AS "Course Code",
+	h.instance_id AS "Course Instance ID", 
+	h.hp AS "HP", 
+
+    --getting teacher's full name by joining person table
+	(p.first_name || ' ' || p.last_name) AS "Teacher's Name",
+    --getting their job title
+	e.job_title AS "Designation",
+
+	--hours by activity
+	COALESCE(SUM(CASE WHEN ta.activity_name = 'Lecture' THEN a.allocated_hours END), 0) AS "Lecture Hours",
+	COALESCE(SUM(CASE WHEN ta.activity_name = 'Tutorial' THEN a.allocated_hours END), 0) AS "Tutorial Hours",
+	COALESCE(SUM(CASE WHEN ta.activity_name = 'Lab' THEN a.allocated_hours END), 0) AS "Lab Hours",
+	COALESCE(SUM(CASE WHEN ta.activity_name = 'Seminar' THEN a.allocated_hours END), 0) AS "Seminar Hours",
+	COALESCE(SUM(CASE WHEN ta.activity_name = 'Other' THEN a.allocated_hours END), 0) AS "Other Overhead Hours",
+	COALESCE(SUM(CASE WHEN ta.activity_name = 'Administration' THEN a.allocated_hours END), 0) AS "Admin",
+	COALESCE(SUM(CASE WHEN ta.activity_name = 'Examination' THEN a.allocated_hours END), 0) AS "Exam",
+
+	--Total hours for the teacher in this course
+	SUM(a.allocated_hours) AS "Total"
+
+FROM allocation a --starting with allocations
+JOIN course_instance ci ON ci.instance_id = a.course_instance_id --getting course info
+JOIN v_course_instance_header h ON h.instance_id = ci.instance_id --more course details
+JOIN employee e ON e.employee_id = a.employee_id --employee info
+JOIN person p ON p.personal_number = e.personal_number --person's name
+JOIN teaching_activity ta ON ta.activity_id = a.activity_id --activity names
+  
+WHERE a.course_instance_id = '2025-50273'
+
+GROUP BY h.course_code, h.instance_id, h.hp, p.first_name, p.last_name, e.job_title, e.employee_id
+ORDER BY p.last_name, p.first_name;
 
 
 SELECT 
