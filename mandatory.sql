@@ -1,5 +1,7 @@
-SET search_path = dsp, public;
+--SET search_path = dsp, public;
 
+--query 1
+-- getting all 2025 course instances with their details such as code, name, HP, period, students
 SELECT 
   ci."Course_Code"           AS "Course Code",
   ci."Instance_ID"           AS "Course Instance ID",
@@ -7,47 +9,57 @@ SELECT
   ci."Period"                AS "Period",
   ci."Num_Students"          AS "# Students",
 
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lecture%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lecture Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%tutorial%' THEN wa."Hours" * wa."Factor" END), 0) AS "Tutorial Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lab%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lab Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%seminar%' THEN wa."Hours" * wa."Factor" END), 0) AS "Seminar Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%overhead%' THEN wa."Hours" * wa."Factor" END), 0) AS "Other Overhead Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%admin%' THEN wa."Hours" * wa."Factor" END), 0) AS "Admin",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%exam%' THEN wa."Hours" * wa."Factor" END), 0) AS "Exam",
+	-- summing up the hours for each activity or 0 if that activity doesn't exist
+	COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lecture%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lecture Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%tutorial%' THEN wa."Hours" * wa."Factor" END), 0) AS "Tutorial Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lab%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lab Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%seminar%' THEN wa."Hours" * wa."Factor" END), 0) AS "Seminar Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%overhead%' THEN wa."Hours" * wa."Factor" END), 0) AS "Other Overhead Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%admin%' THEN wa."Hours" * wa."Factor" END), 0) AS "Admin",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%exam%' THEN wa."Hours" * wa."Factor" END), 0) AS "Exam",
 
-  COALESCE(SUM(wa."Hours" * wa."Factor"), 0) AS "Total Hours"
+  	
+	-- Total, the sum of all activities
+	COALESCE(SUM(wa."Hours" * wa."Factor"), 0) AS "Total Hours"
 
-FROM "Course_Instance" ci
-JOIN "Course" c ON ci."Course_Code" = c."Course_Code"
+FROM "Course_Instance" ci --this view has all course instance details
+JOIN "Course" c ON ci."Course_Code" = c."Course_Code" --join to get hours per activity
 LEFT JOIN "Work_Allocation" wa ON wa."Instance_ID" = ci."Instance_ID"
-WHERE ci."Year" = 2025
+
+WHERE ci."Year" = 2025 --only 2025 courses
+
+--group by instance
 GROUP BY ci."Course_Code", ci."Instance_ID", c."Credits", ci."Period", ci."Num_Students"
+--sort by course code and period
 ORDER BY ci."Course_Code", ci."Period";
 
--- Query 2: breakdown per teacher for a specific instance (use your teacher table)
+
+-- Query 2
+--for a specific course, show each teacher and their allocated hours by activity
+--Picking one course instance
 SELECT
   ci."Course_Code"            AS "Course Code",
   ci."Instance_ID"            AS "Course Instance ID",
   c."Credits"                 AS "HP",
-  (t."Name")                  AS "Teacher's Name",
-  -- You don't have a separate job_title column in Teacher in the setup; if you have it elsewhere,
-  -- replace NULL with the appropriate column or JOIN. Here we include the Designation column:
+  (t."Name")                  AS "Teacher's Name", 
   t."Designation"             AS "Designation",
 
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lecture%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lecture Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%tutorial%' THEN wa."Hours" * wa."Factor" END), 0) AS "Tutorial Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lab%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lab Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%seminar%' THEN wa."Hours" * wa."Factor" END), 0) AS "Seminar Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%overhead%' THEN wa."Hours" * wa."Factor" END), 0) AS "Other Overhead Hours",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%admin%' THEN wa."Hours" * wa."Factor" END), 0) AS "Admin",
-  COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%exam%' THEN wa."Hours" * wa."Factor" END), 0) AS "Exam",
+    --hours by activity
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lecture%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lecture Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%tutorial%' THEN wa."Hours" * wa."Factor" END), 0) AS "Tutorial Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lab%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lab Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%seminar%' THEN wa."Hours" * wa."Factor" END), 0) AS "Seminar Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%overhead%' THEN wa."Hours" * wa."Factor" END), 0) AS "Other Overhead Hours",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%admin%' THEN wa."Hours" * wa."Factor" END), 0) AS "Admin",
+    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%exam%' THEN wa."Hours" * wa."Factor" END), 0) AS "Exam",
 
-  COALESCE(SUM(wa."Hours" * wa."Factor"), 0) AS "Total"
+    --Total hours for the teacher in this course
+    COALESCE(SUM(wa."Hours" * wa."Factor"), 0) AS "Total"
 
 FROM "Work_Allocation" wa
-JOIN "Course_Instance" ci ON ci."Instance_ID" = wa."Instance_ID"
-JOIN "Course" c ON c."Course_Code" = ci."Course_Code"
-JOIN "Teacher" t ON t."Employee_ID" = wa."Employee_ID"
+JOIN "Course_Instance" ci ON ci."Instance_ID" = wa."Instance_ID" --getting course info
+JOIN "Course" c ON c."Course_Code" = ci."Course_Code" --more course details
+JOIN "Teacher" t ON t."Employee_ID" = wa."Employee_ID" --employee info
 WHERE ci."Instance_ID" = '2025-50273'
 GROUP BY ci."Course_Code", ci."Instance_ID", c."Credits", t."Name", t."Designation"
 ORDER BY t."Name";
@@ -116,11 +128,4 @@ GROUP BY T."Employee_ID", T."Name", CI."Period"
 --filter to show teachers with only more than X courses
 -- X = 1
 HAVING COUNT(DISTINCT CI."Instance_ID") > 1
-
 ORDER BY CI."Period", COUNT(DISTINCT CI."Instance_ID") DESC;
-
-
-
-
-
-
