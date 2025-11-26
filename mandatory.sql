@@ -1,4 +1,5 @@
--- Query 1: course instances in 2025 with activity breakdown (uses actual tables)
+SET search_path = dsp, public;
+
 SELECT 
   ci."Course_Code"           AS "Course Code",
   ci."Instance_ID"           AS "Course Instance ID",
@@ -22,7 +23,6 @@ LEFT JOIN "Work_Allocation" wa ON wa."Instance_ID" = ci."Instance_ID"
 WHERE ci."Year" = 2025
 GROUP BY ci."Course_Code", ci."Instance_ID", c."Credits", ci."Period", ci."Num_Students"
 ORDER BY ci."Course_Code", ci."Period";
-
 
 -- Query 2: breakdown per teacher for a specific instance (use your teacher table)
 SELECT
@@ -51,9 +51,6 @@ JOIN "Teacher" t ON t."Employee_ID" = wa."Employee_ID"
 WHERE ci."Instance_ID" = '2025-50273'
 GROUP BY ci."Course_Code", ci."Instance_ID", c."Credits", t."Name", t."Designation"
 ORDER BY t."Name";
-
-
-
 
 
 -- query 3
@@ -111,7 +108,7 @@ JOIN  "Work_Allocation" WA ON T."Employee_ID" = WA."Employee_ID"
 JOIN "Course_Instance" CI ON WA."Instance_ID" = CI."Instance_ID"
 
 WHERE 
-	CI."Year" = 2025
+	CI."Period" = 2
 
 -- group by teacher and period
 GROUP BY T."Employee_ID", T."Name", CI."Period"
