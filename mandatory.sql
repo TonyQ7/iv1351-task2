@@ -127,6 +127,6 @@ GROUP BY T."Employee_ID", T."Name", CI."Period"
 
 --filter to show teachers with only more than X courses
 -- X = 1
-HAVING COUNT(DISTINCT CI."Instance_ID") > 1
+HAVING COUNT(DISTINCT CI."Instance_ID") > 0
 ORDER BY CI."Period", COUNT(DISTINCT CI."Instance_ID") DESC;
 
