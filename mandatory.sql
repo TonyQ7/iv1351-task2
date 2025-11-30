@@ -26,7 +26,7 @@ FROM "Course_Instance" ci --this view has all course instance details
 JOIN "Course" c ON ci."Course_Code" = c."Course_Code" --join to get hours per activity
 LEFT JOIN "Work_Allocation" wa ON wa."Instance_ID" = ci."Instance_ID"
 
-WHERE ci."Year" = 2025 --only 2025 courses
+WHERE ci."Year" = CAST(EXTRACT(YEAR FROM CURRENT_DATE) AS INT)
 
 --group by instance
 GROUP BY ci."Course_Code", ci."Instance_ID", c."Credits", ci."Period", ci."Num_Students"
@@ -129,3 +129,4 @@ GROUP BY T."Employee_ID", T."Name", CI."Period"
 -- X = 1
 HAVING COUNT(DISTINCT CI."Instance_ID") > 1
 ORDER BY CI."Period", COUNT(DISTINCT CI."Instance_ID") DESC;
+
