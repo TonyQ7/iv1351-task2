@@ -38,3 +38,5 @@ Execute the scripts in the following specific order using the **Query Tool** in 
     * Open `higher_grade.sql`.
     * Press **F5 (Execute)**.
     * *Note: Check the "Explain" tab to see the performance improvement (Index Scan vs. Seq Scan) compared to Step 2.*
+
+Note: The Index Scan optimization is best observed on larger datasets. We temporarily injected 10,000 mock rows. So if you run this code and see a Sequential Scan, it is not because our solution is wrong, it is because the assignment requires our solution (the database structure and queries) to be reproducible. The 10,000 rows were just a tool we used for verification for ourselves.
