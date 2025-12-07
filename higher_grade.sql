@@ -6,8 +6,10 @@
 -- We join Work_Allocation and Course_Instance often.
 -- Indexing the foreign keys helps the JOIN performance.
 
-CREATE INDEX idx_allocation_instance ON "Work_Allocation"("Instance_ID");
-CREATE INDEX idx_instance_period ON "Course_Instance"("Period");
+CREATE INDEX idx_allocation_instance ON allocation(course_instance_id);
+CREATE INDEX idx_instance_period ON course_instance(study_period);
+CREATE INDEX idx_allocation_employee ON allocation(employee_id);
+CREATE INDEX idx_allocation_activity ON allocation(activity_id);
 
 -- RUN EXPLAIN ANALYZE AGAIN on Query 4/5 to see improvement
 EXPLAIN ANALYZE

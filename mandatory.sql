@@ -3,130 +3,116 @@
 --query 1
 -- getting all 2025 course instances with their details such as code, name, HP, period, students
 SELECT 
-  ci."Course_Code"           AS "Course Code",
-  ci."Instance_ID"           AS "Course Instance ID",
-  c."Credits"                AS "HP",
-  ci."Period"                AS "Period",
-  ci."Num_Students"          AS "# Students",
+    ci.instance_id AS "Course Instance ID",
+    ci.course_code AS "Course Code",
+    clv.hp AS "HP",
+    ci.study_period AS "Period",
+    ci.num_students AS "# Students",
+    
+    -- Sum hours by activity type using the views from Task 1
+    COALESCE(SUM(CASE WHEN v.activity_name = 'Lecture' THEN v.effective_hours END), 0) AS "Lecture Hours",
+    COALESCE(SUM(CASE WHEN v.activity_name = 'Tutorial' THEN v.effective_hours END), 0) AS "Tutorial Hours",
+    COALESCE(SUM(CASE WHEN v.activity_name = 'Lab' THEN v.effective_hours END), 0) AS "Lab Hours",
+    COALESCE(SUM(CASE WHEN v.activity_name = 'Seminar' THEN v.effective_hours END), 0) AS "Seminar Hours",
+    COALESCE(SUM(CASE WHEN v.activity_name = 'Other' THEN v.effective_hours END), 0) AS "Other Overhead Hours",
+    COALESCE(SUM(CASE WHEN v.activity_name = 'Administration' THEN v.effective_hours END), 0) AS "Admin",
+    COALESCE(SUM(CASE WHEN v.activity_name = 'Examination' THEN v.effective_hours END), 0) AS "Exam",
+    
+    SUM(v.effective_hours) AS "Total Hours"
 
-	-- summing up the hours for each activity or 0 if that activity doesn't exist
-	COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lecture%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lecture Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%tutorial%' THEN wa."Hours" * wa."Factor" END), 0) AS "Tutorial Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lab%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lab Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%seminar%' THEN wa."Hours" * wa."Factor" END), 0) AS "Seminar Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%overhead%' THEN wa."Hours" * wa."Factor" END), 0) AS "Other Overhead Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%admin%' THEN wa."Hours" * wa."Factor" END), 0) AS "Admin",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%exam%' THEN wa."Hours" * wa."Factor" END), 0) AS "Exam",
+FROM course_instance ci
+JOIN course_layout_version clv ON (clv.course_code = ci.course_code AND clv.version_no = ci.layout_version_no)
+JOIN v_activity_hours v ON v.course_instance_id = ci.instance_id  -- Use the view!
 
-  	
-	-- Total, the sum of all activities
-	COALESCE(SUM(wa."Hours" * wa."Factor"), 0) AS "Total Hours"
+WHERE ci.study_year = 2025
 
-FROM "Course_Instance" ci --this view has all course instance details
-JOIN "Course" c ON ci."Course_Code" = c."Course_Code" --join to get hours per activity
-LEFT JOIN "Work_Allocation" wa ON wa."Instance_ID" = ci."Instance_ID"
-
-WHERE ci."Year" = CAST(EXTRACT(YEAR FROM CURRENT_DATE) AS INT)
-
---group by instance
-GROUP BY ci."Course_Code", ci."Instance_ID", c."Credits", ci."Period", ci."Num_Students"
---sort by course code and period
-ORDER BY ci."Course_Code", ci."Period";
-
+GROUP BY ci.instance_id, ci.course_code, clv.hp, ci.study_period, ci.num_students
+ORDER BY ci.course_code, ci.study_period;
 
 -- Query 2
 --for a specific course, show each teacher and their allocated hours by activity
 --Picking one course instance
-SELECT
-  ci."Course_Code"            AS "Course Code",
-  ci."Instance_ID"            AS "Course Instance ID",
-  c."Credits"                 AS "HP",
-  (t."Name")                  AS "Teacher's Name", 
-  t."Designation"             AS "Designation",
+SELECT 
+    ci.course_code AS "Course Code",
+    ci.instance_id AS "Course Instance ID",
+    clv.hp AS "HP",
+    (p.first_name || ' ' || p.last_name) AS "Teacher's Name",
+    e.job_title AS "Designation",
+    
+    -- Sum allocated hours by activity type
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Lecture' THEN a.allocated_hours END), 0) AS "Lecture Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Tutorial' THEN a.allocated_hours END), 0) AS "Tutorial Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Lab' THEN a.allocated_hours END), 0) AS "Lab Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Seminar' THEN a.allocated_hours END), 0) AS "Seminar Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Other' THEN a.allocated_hours END), 0) AS "Other Overhead Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Administration' THEN a.allocated_hours END), 0) AS "Admin",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Examination' THEN a.allocated_hours END), 0) AS "Exam",
+    
+    SUM(a.allocated_hours) AS "Total"
 
-    --hours by activity
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lecture%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lecture Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%tutorial%' THEN wa."Hours" * wa."Factor" END), 0) AS "Tutorial Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%lab%' THEN wa."Hours" * wa."Factor" END), 0) AS "Lab Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%seminar%' THEN wa."Hours" * wa."Factor" END), 0) AS "Seminar Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%overhead%' THEN wa."Hours" * wa."Factor" END), 0) AS "Other Overhead Hours",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%admin%' THEN wa."Hours" * wa."Factor" END), 0) AS "Admin",
-    COALESCE(SUM(CASE WHEN LOWER(wa."Activity") LIKE '%exam%' THEN wa."Hours" * wa."Factor" END), 0) AS "Exam",
+FROM allocation a
+JOIN course_instance ci ON ci.instance_id = a.course_instance_id
+JOIN course_layout_version clv ON (clv.course_code = ci.course_code AND clv.version_no = ci.layout_version_no)
+JOIN employee e ON e.employee_id = a.employee_id
+JOIN person p ON p.personal_number = e.personal_number
+JOIN teaching_activity ta ON ta.activity_id = a.activity_id
 
-    --Total hours for the teacher in this course
-    COALESCE(SUM(wa."Hours" * wa."Factor"), 0) AS "Total"
+WHERE ci.instance_id = '2025-50273'
 
-FROM "Work_Allocation" wa
-JOIN "Course_Instance" ci ON ci."Instance_ID" = wa."Instance_ID" --getting course info
-JOIN "Course" c ON c."Course_Code" = ci."Course_Code" --more course details
-JOIN "Teacher" t ON t."Employee_ID" = wa."Employee_ID" --employee info
-WHERE ci."Instance_ID" = '2025-50273'
-GROUP BY ci."Course_Code", ci."Instance_ID", c."Credits", t."Name", t."Designation"
-ORDER BY t."Name";
-
+GROUP BY ci.course_code, ci.instance_id, clv.hp, p.first_name, p.last_name, e.job_title, e.employee_id
+ORDER BY p.last_name, p.first_name;
 
 -- query 3
 -- "Calculate the total allocated hours (with multiplication factors) 
 --for a teacher, only for the current years' course instance"
 SELECT
-	C."Course_Code" AS "Course Code",
-	CI."Instance_ID" AS "Course Instance ID",
-	C."Credits" AS "HP",
-	CI."Period",
-	T."Name" AS "Teacher's Name",
+    ci.course_code AS "Course Code",
+    ci.instance_id AS "Course Instance ID",
+    clv.hp AS "HP",
+    ci.study_period AS "Period",
+    (p.first_name || ' ' || p.last_name) AS "Teacher's Name",
+    
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Lecture' THEN a.allocated_hours END), 0) AS "Lecture Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Tutorial' THEN a.allocated_hours END), 0) AS "Tutorial Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Lab' THEN a.allocated_hours END), 0) AS "Lab Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Seminar' THEN a.allocated_hours END), 0) AS "Seminar Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Other' THEN a.allocated_hours END), 0) AS "Other Overhead Hours",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Administration' THEN a.allocated_hours END), 0) AS "Admin",
+    COALESCE(SUM(CASE WHEN ta.activity_name = 'Examination' THEN a.allocated_hours END), 0) AS "Exam",
+    
+    SUM(a.allocated_hours) AS "Total"
 
-
-	-- hours by activity type (hours * factor)
-	COALESCE(SUM(CASE WHEN WA."Activity" = 'Lecture' THEN WA."Hours" * WA."Factor" END), 0 ) AS "Lecture Hours",
-	COALESCE(SUM(CASE WHEN WA."Activity" = 'Tutorial' THEN WA."Hours" * WA."Factor" END), 0 ) AS "Tutorial Hours",
-	COALESCE(SUM(CASE WHEN WA."Activity" = 'Lab' THEN WA."Hours" * WA."Factor" END), 0) AS "Lab Hours",
-    COALESCE(SUM(CASE WHEN WA."Activity" = 'Seminar' THEN WA."Hours" * WA."Factor" END), 0) AS "Seminar Hours",
-    COALESCE(SUM(CASE WHEN WA."Activity" = 'Other Overhead' THEN WA."Hours" * WA."Factor" END), 0) AS "Other Overhead Hours",
-    COALESCE(SUM(CASE WHEN WA."Activity" = 'Admin' THEN WA."Hours" * WA."Factor" END), 0) AS "Admin",
-    COALESCE(SUM(CASE WHEN WA."Activity" = 'Exam' THEN WA."Hours" * WA."Factor" END), 0) AS "Exam",
-   
-	SUM(WA."Hours" * WA."Factor") AS "Total" -- total of all activites for this teacher in htis course
-
-FROM "Teacher" T 
-JOIN "Work_Allocation" WA ON T."Employee_ID" = WA."Employee_ID"
-
-JOIN "Course_Instance" CI ON WA."Instance_ID" = CI."Instance_ID"
-
---get course details
-JOIN "Course" C ON CI."Course_Code" = C."Course_Code"
+FROM employee e
+JOIN person p ON p.personal_number = e.personal_number
+JOIN allocation a ON a.employee_id = e.employee_id
+JOIN course_instance ci ON ci.instance_id = a.course_instance_id
+JOIN course_layout_version clv ON (clv.course_code = ci.course_code AND clv.version_no = ci.layout_version_no)
+JOIN teaching_activity ta ON ta.activity_id = a.activity_id
 
 WHERE 
-	CI."Year" = 2025
-	AND T."Name" = 'Niharika Gauraha'
+    ci.study_year = 2025
+    AND (p.first_name || ' ' || p.last_name) = 'Clara Nyström'  -- Or use employee_id
 
---group by course isntance
-GROUP BY C."Course_Code", CI."Instance_ID", C."Credits", CI."Period", T."Name"
---order by period to see chronological workload 
-ORDER BY CI."Period", C."Course_Code";
-
+GROUP BY ci.course_code, ci.instance_id, clv.hp, ci.study_period, p.first_name, p.last_name
+ORDER BY ci.study_period, ci.course_code;
 
 --query 4:
 --"List employee ids and names of all teachers who are allocated in more than a 
 --specific number of course instances during the current period"
-
 SELECT 
-	T."Employee_ID" AS "Employment ID",
-	T."Name" AS "Teacher's Name",
-	CI."Period",
-	COUNT(DISTINCT CI."Instance_ID") AS "No of courses"
+    e.employee_id AS "Employment ID",
+    (p.first_name || ' ' || p.last_name) AS "Teacher's Name",
+    ci.study_period AS "Period",
+    COUNT(DISTINCT ci.instance_id) AS "No of courses"
 
-FROM "Teacher" T
-JOIN  "Work_Allocation" WA ON T."Employee_ID" = WA."Employee_ID"
-JOIN "Course_Instance" CI ON WA."Instance_ID" = CI."Instance_ID"
+FROM employee e
+JOIN person p ON p.personal_number = e.personal_number
+JOIN allocation a ON a.employee_id = e.employee_id
+JOIN course_instance ci ON ci.instance_id = a.course_instance_id
 
-WHERE 
-	CI."Period" = 2
+WHERE ci.study_year = 2025
 
--- group by teacher and period
-GROUP BY T."Employee_ID", T."Name", CI."Period"
+GROUP BY e.employee_id, p.first_name, p.last_name, ci.study_period
+HAVING COUNT(DISTINCT ci.instance_id) > 1
 
---filter to show teachers with only more than X courses
--- X = 1
-HAVING COUNT(DISTINCT CI."Instance_ID") > 0
-ORDER BY CI."Period", COUNT(DISTINCT CI."Instance_ID") DESC;
-
+ORDER BY ci.study_period, COUNT(DISTINCT ci.instance_id) DESC;
