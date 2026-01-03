@@ -1,52 +1,85 @@
 /* ==============================================================
-   HIGHER GRADE - OPTIMIZATIONS
+   HIGHER GRADE - OPTIMIZATIONS & ANALYSIS
    ============================================================== */
 
--- 1. INDEX OPTIMIZATION (For the High Frequency Query 5)
--- We join Work_Allocation and Course_Instance often.
--- Indexing the foreign keys helps the JOIN performance.
+EXPLAIN ANALYZE
+WITH allocated_sum AS (
+    SELECT 
+        course_instance_id, 
+        SUM(allocated_hours) AS total_allocated
+    FROM allocation
+    GROUP BY course_instance_id
+)
+SELECT 
+    ci.course_code, 
+    ci.instance_id, 
+    p.total_effective_hours AS planned_hours,
+    COALESCE(a.total_allocated, 0) AS allocated_hours,
+    CASE 
+        WHEN p.total_effective_hours > 0 THEN 
+            ABS(p.total_effective_hours - COALESCE(a.total_allocated, 0)) / p.total_effective_hours 
+        ELSE 0 
+    END AS variance_ratio
+FROM v_course_instance_total_hours p
+JOIN course_instance ci ON ci.instance_id = p.instance_id
+LEFT JOIN allocated_sum a ON a.course_instance_id = p.instance_id
+WHERE 
+    CASE 
+        WHEN p.total_effective_hours > 0 THEN 
+            ABS(p.total_effective_hours - COALESCE(a.total_allocated, 0)) / p.total_effective_hours 
+        ELSE 0 
+    END > 0.15;
 
-CREATE INDEX idx_allocation_instance ON allocation(course_instance_id);
-CREATE INDEX idx_instance_period ON course_instance(study_period);
-CREATE INDEX idx_allocation_employee ON allocation(employee_id);
-CREATE INDEX idx_allocation_activity ON allocation(activity_id);
 
--- RUN EXPLAIN ANALYZE AGAIN on Query 4/5 to see improvement
+-- 1. INDEX OPTIMIZATION (For High Frequency Queries)
+-- The "Teachers with > N courses" query runs 20x/day.
+-- We join allocation, employee, and course_instance often.
+
+CREATE INDEX IF NOT EXISTS idx_allocation_instance ON allocation(course_instance_id);
+CREATE INDEX IF NOT EXISTS idx_allocation_employee ON allocation(employee_id);
+CREATE INDEX IF NOT EXISTS idx_instance_period ON course_instance(study_period);
+
+-- Rerun the High Frequency Query (Query 5 in list) with EXPLAIN ANALYZE
 EXPLAIN ANALYZE
 SELECT 
-    T."Employee_ID", 
-    T."Name", 
-    CI."Period", 
-    COUNT(DISTINCT CI."Instance_ID") 
-FROM "Teacher" T
-JOIN "Work_Allocation" WA ON T."Employee_ID" = WA."Employee_ID"
-JOIN "Course_Instance" CI ON WA."Instance_ID" = CI."Instance_ID"
-WHERE CI."Period" = 2 
-GROUP BY T."Employee_ID", T."Name", CI."Period"
-HAVING COUNT(DISTINCT CI."Instance_ID") > 0;
+    e.employee_id, 
+    p.first_name, 
+    p.last_name, 
+    ci.study_period, 
+    COUNT(DISTINCT ci.instance_id) AS num_courses
+FROM employee e
+JOIN person p ON e.personal_number = p.personal_number
+JOIN allocation a ON e.employee_id = a.employee_id
+JOIN course_instance ci ON a.course_instance_id = ci.instance_id
+WHERE ci.study_period = 'P1' 
+GROUP BY e.employee_id, p.first_name, p.last_name, ci.study_period
+HAVING COUNT(DISTINCT ci.instance_id) > 1; -- Using 1 for testing (mock data), normally 4
 
 
--- 2. MATERIALIZED VIEW (For Expensive Aggregations like Query 3)
--- Justification: Calculating total load involves summing thousands of rows. 
--- Since this is checked only 5x/day, we can cache the result.
+-- 2. MATERIALIZED VIEW (For Expensive Aggregations)
+-- Justification: "Teacher Load per Period" (Query 3 in list) involves summing 
+-- allocated hours across all activities and joining multiple tables.
+-- Since this is read 5x/day but data changes less frequently, caching helps.
 
-DROP MATERIALIZED VIEW IF EXISTS "MatView_TeacherLoad";
+DROP MATERIALIZED VIEW IF EXISTS mat_teacher_load;
 
-CREATE MATERIALIZED VIEW "MatView_TeacherLoad" AS
+CREATE MATERIALIZED VIEW mat_teacher_load AS
 SELECT 
-    T."Name",
-    CI."Period",
-    SUM(WA."Hours" * WA."Factor") AS "Total_Load"
-FROM "Teacher" T
-JOIN "Work_Allocation" WA ON T."Employee_ID" = WA."Employee_ID"
-JOIN "Course_Instance" CI ON WA."Instance_ID" = CI."Instance_ID"
-GROUP BY T."Name", CI."Period";
+    p.first_name,
+    p.last_name,
+    ci.study_period,
+    ci.study_year,
+    SUM(a.allocated_hours) AS total_load_hours
+FROM employee e
+JOIN person p ON e.personal_number = p.personal_number
+JOIN allocation a ON e.employee_id = a.employee_id
+JOIN course_instance ci ON a.course_instance_id = ci.instance_id
+GROUP BY p.first_name, p.last_name, ci.study_period, ci.study_year;
 
--- Create an index on the view itself for faster lookup
-CREATE INDEX idx_mat_view_teacher ON "MatView_TeacherLoad"("Name");
+-- Create an index on the view itself for faster lookup by name
+CREATE INDEX idx_mat_teacher_name ON mat_teacher_load(last_name, first_name);
 
 -- Demonstrate Querying the View
-SELECT * FROM "MatView_TeacherLoad" WHERE "Name" = 'Niharika Gauraha';
-
--- Demonstrate Refreshing the View (Simulating data update)
-REFRESH MATERIALIZED VIEW "MatView_TeacherLoad";
+EXPLAIN ANALYZE
+SELECT * FROM mat_teacher_load 
+WHERE last_name = 'Nyström' AND study_period = 'P1';
