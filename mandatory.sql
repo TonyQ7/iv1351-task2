@@ -96,23 +96,18 @@ WHERE
 GROUP BY ci.course_code, ci.instance_id, clv.hp, ci.study_period, p.first_name, p.last_name
 ORDER BY ci.study_period, ci.course_code;
 
---query 4:
---"List employee ids and names of all teachers who are allocated in more than a 
---specific number of course instances during the current period"
+-- Query 4: Teachers allocated to more than the allowed limit of course instances
 SELECT 
     e.employee_id AS "Employment ID",
     (p.first_name || ' ' || p.last_name) AS "Teacher's Name",
     ci.study_period AS "Period",
     COUNT(DISTINCT ci.instance_id) AS "No of courses"
-
 FROM employee e
-JOIN person p ON p.personal_number = e.personal_number
+JOIN person p ON e.personal_number = p.personal_number
 JOIN allocation a ON a.employee_id = e.employee_id
 JOIN course_instance ci ON ci.instance_id = a.course_instance_id
-
 WHERE ci.study_year = 2025
-
 GROUP BY e.employee_id, p.first_name, p.last_name, ci.study_period
-HAVING COUNT(DISTINCT ci.instance_id) > 1
 
+HAVING COUNT(DISTINCT ci.instance_id) > (SELECT max_instances_per_period FROM allocation_rule LIMIT 1)
 ORDER BY ci.study_period, COUNT(DISTINCT ci.instance_id) DESC;
