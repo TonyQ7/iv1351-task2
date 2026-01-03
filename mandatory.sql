@@ -1,4 +1,4 @@
---SET search_path = dsp, public;
+SET search_path = dsp, public;
 
 --query 1
 -- getting all 2025 course instances with their details such as code, name, HP, period, students
@@ -111,3 +111,4 @@ GROUP BY e.employee_id, p.first_name, p.last_name, ci.study_period
 
 HAVING COUNT(DISTINCT ci.instance_id) > (SELECT max_instances_per_period FROM allocation_rule LIMIT 1)
 ORDER BY ci.study_period, COUNT(DISTINCT ci.instance_id) DESC;
+
