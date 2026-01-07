@@ -2,6 +2,7 @@
    HIGHER GRADE - OPTIMIZATIONS & ANALYSIS
    ============================================================== */
 
+SET search_path = dsp, public;
 EXPLAIN ANALYZE
 WITH allocated_sum AS (
     SELECT 
